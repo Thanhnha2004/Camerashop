@@ -25,12 +25,12 @@ class Address extends Model
      */
     protected $fillable = [
         'user_id',
-        'address_line_1',
-        'address_line_2',
+        'full_name',
+        'phone',
+        'address_line',
+        'ward',
+        'district',
         'city',
-        'state',
-        'zip_code',
-        'country',
         'is_default',
     ];
 

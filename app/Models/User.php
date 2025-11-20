@@ -3,14 +3,14 @@
 namespace App\Models;
 
 // Import thêm cho Sanctum và Verify Email
-use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany; // Import HasMany
 
-class User extends Authenticatable// implements MustVerifyEmail đã được thêm
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -23,8 +23,10 @@ class User extends Authenticatable// implements MustVerifyEmail đã được th
         'name',
         'email',
         'password',
-        // 'phone_number',
-        // 'avatar_url'
+        'phone',
+        'avatar',
+        'role',   // Thêm vào để cho phép gán mass assignment nếu cần
+        'status', // Thêm vào để cho phép gán mass assignment nếu cần
     ];
 
     /**
@@ -44,14 +46,79 @@ class User extends Authenticatable// implements MustVerifyEmail đã được th
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        // Thêm role và status để đảm bảo chúng là chuỗi
+        'role' => 'string',
+        'status' => 'string',
     ];
 
+    // --- MỐI QUAN HỆ ---
+
     /**
-     * Định nghĩa mối quan hệ 1-nhiều với Model Address.
+     * Định nghĩa mối quan hệ 1-nhiều với Model Address (Địa chỉ).
      */
-    public function addresses(): HasMany
+    public function addresses(): HasMany // Dùng HasMany::class
     {
-        // Giả định bạn đã tạo Model App\Models\Address
-        return $this->hasMany(Address::class); 
+        return $this->hasMany(Address::class, 'user_id');
+    }
+
+    /**
+     * Mối quan hệ: Người dùng có nhiều mục giỏ hàng.
+     */
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(Cart::class, 'user_id', 'id');
+    }
+
+    /**
+     * Mối quan hệ: Người dùng có nhiều Đơn hàng (1-to-Many).
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'user_id');
+    }
+
+    // --- CÁC PHƯƠNG THỨC HỖ TRỢ ---
+
+    /**
+     * Kiểm tra xem người dùng có phải là Admin hay không (Dùng cho Admin Middleware).
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Mối quan hệ: Người dùng có nhiều mục trong danh sách yêu thích.
+     * Liên kết với Wishlist Model.
+     */
+    public function wishlistItems(): HasMany
+    {
+        return $this->hasMany(Wishlist::class, 'user_id');
+    }
+
+    /**
+     * Mối quan hệ: Người dùng có thể có nhiều đánh giá (user HAS MANY reviews).
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
+     * Quan hệ: Một người dùng có nhiều lượt đánh dấu 'Hữu ích'.
+     */
+    public function helpfuls(): HasMany
+    {
+        return $this->hasMany(ReviewHelpful::class);
+    }
+
+    /**
+     * Mối quan hệ: Một User có thể viết nhiều Blog. (One-to-Many)
+     * Dùng HasMany để định nghĩa tác giả của nhiều bài blog.
+     * Cột foreign key là 'author_id' trong bảng 'blogs'.
+     */
+    public function blogs(): HasMany
+    {
+        return $this->hasMany(Blog::class, 'author_id');
     }
 }

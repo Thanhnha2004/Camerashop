@@ -23,7 +23,6 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed', // 'confirmed' yêu cầu trường password_confirmation
-            // 'phone_number' => 'required|string|max:255',
         ]);
 
         // 2. Tạo User mới
@@ -31,14 +30,11 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            // 'phone_number' => $request->phone_number,
         ]);
 
         // 3. Tạo Sanctum Token
         // 'auth_token' là tên token
         $token = $user->createToken('auth_token')->plainTextToken;
-
-        // $user->sendEmailVerificationNotification();
 
         return response()->json([
             'user' => $user,
