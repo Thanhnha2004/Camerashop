@@ -10,9 +10,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Socialite\Facades\Socialite; 
 
 class AuthController extends Controller
 {
+
     /**
      * POST /api/register
      */
@@ -67,6 +69,53 @@ class AuthController extends Controller
         $user->tokens()->delete();
 
         // 3. Tạo Sanctum Token mới
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'user' => $user,
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
+    public function redirect()
+    {
+        return Socialite::driver('google')->redirect();
+    }
+
+    /**
+     * POST /api/google/callback
+     * * Xử lý mã ủy quyền (code) nhận được từ Google OAuth.
+     */
+    public function googleAuthCallback()
+    {
+        try{
+            $googleUser = Socialite::driver('google')->user();
+            $user = User::where('google_id', $googleUser->getId())->first();
+
+            if(!$user){
+                $new_user = User::create([
+                    'name'=> $googleUser->getName(),
+                    'email'=> $googleUser->getEmail(),
+                    'google_id'=> $googleUser->getId(),
+                ]);
+            } else {
+                return 0;
+            }
+        }catch(Exception $e){
+            dd("something wrong");
+        }
+    }
+
+    /**
+     * Helper: Tạo Sanctum Token và trả về Response chung
+     */
+    protected function issueTokenResponse(User $user)
+    {
+        // Xóa token cũ
+        $user->tokens()->delete();
+
+        // Tạo token mới
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

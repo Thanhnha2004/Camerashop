@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
@@ -94,6 +96,43 @@ class Product extends Model
         return $this->hasMany(ProductSpecification::class, 'product_id');
     }
 
-  
+    /**
+     * Quan hệ Belongs To Many với User thông qua bảng 'wishlists'.
+     * Mối quan hệ: Sản phẩm này nằm trong Wishlist của nhiều người dùng.
+     */
+    public function wishlistedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'wishlists', 'product_id', 'user_id')
+            ->withTimestamps(); // Giả định bảng 'wishlists' có timestamps
+    }
 
+    /**
+     * Quan hệ Has Many với OrderItem.
+     * Lấy tất cả các mục chi tiết đơn hàng có chứa sản phẩm này.
+     * Đây là cách để theo dõi số lượng bán (sales_count) và lịch sử mua hàng.
+     */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class, 'product_id');
+    }
+
+    /**
+     * Mối quan hệ: Sản phẩm có thể có nhiều đánh giá (product HAS MANY reviews).
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
+     * Quan hệ HasMany với LowStockNotification.
+     * Một sản phẩm có thể có nhiều thông báo tồn kho thấp được tạo ra.
+     *
+     * @return HasMany
+     */
+    public function lowStockNotifications(): HasMany
+    {
+        // Khóa ngoại mặc định là 'product_id' trong bảng low_stock_notifications
+        return $this->hasMany(LowStockNotification::class);
+    }
 }

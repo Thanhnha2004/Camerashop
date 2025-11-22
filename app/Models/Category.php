@@ -48,9 +48,4 @@ class Category extends Model
         // Category có quan hệ HasMany (có nhiều) với chính nó thông qua parent_id
         return $this->hasMany(Category::class, 'parent_id');
     }
-
-     public function products()
-    {
-        return $this->hasMany(Product::class, 'category_id');
-    }
 }

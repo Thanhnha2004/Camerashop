@@ -2,6 +2,7 @@
 
 namespace App\Http;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
@@ -65,4 +66,13 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'admin' => \App\Http\Middleware\AdminMiddleware::class
     ];
+
+    protected function schedule(Schedule $schedule)
+    {
+        // Chạy lệnh kiểm tra tồn kho mỗi giờ
+        $schedule->command('check:low-stock')->hourly();
+
+        // Bạn có thể chạy nó hàng ngày, hay vào một giờ cố định tùy theo nhu cầu
+        // $schedule->command('check:low-stock')->dailyAt('08:00');
+    }
 }

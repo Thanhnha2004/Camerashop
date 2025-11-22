@@ -9,13 +9,7 @@ class ProductImage extends Model
     protected $table = 'product_images';
     protected $primaryKey = 'id';
 
-    /**
-     * Tắt tính năng tự động quản lý updated_at vì bảng này chỉ có created_at (theo cấu trúc ảnh).
-     * Hoặc giữ lại nếu bạn muốn thêm updated_at sau này.
-     * Lưu ý: Trong ảnh, chỉ có created_at là timestamp mặc định.
-     * Nếu không có updated_at, bạn nên thêm thuộc tính sau:
-     * const UPDATED_AT = null;
-     */
+    const UPDATED_AT = null;
     
     /**
      * Các thuộc tính có thể gán hàng loạt.

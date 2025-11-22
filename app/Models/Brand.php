@@ -27,7 +27,7 @@ class Brand extends Model
         'name',
         'slug',
         'logo',
-        'is_active'
+        'is_active',
     ];
 
     /**
@@ -41,10 +41,4 @@ class Brand extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
-
-    public function products()
-    {
-        return $this->hasMany(Product::class); // giả sử bạn có model Product
-    }
-
 }

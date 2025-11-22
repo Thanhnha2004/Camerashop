@@ -7,9 +7,10 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-class   AdminProductController extends Controller
+class AdminProductController extends Controller
 {
     /**
      * Lấy danh sách sản phẩm cho Admin, bao gồm phân trang và bộ lọc.
@@ -86,11 +87,11 @@ class   AdminProductController extends Controller
 
         // 2. Tạo slug nếu không được cung cấp
         if (empty($data['slug'])) {
-            $data['slug'] = \Illuminate\Support\Str::slug($data['name']);
+            $data['slug'] = Str::slug($data['name']);
             // Đảm bảo slug vẫn duy nhất (ví dụ: thêm ID nếu trùng)
             $i = 1;
             while (Product::where('slug', $data['slug'])->exists()) {
-                $data['slug'] = \Illuminate\Support\Str::slug($data['name']) . '-' . $i++;
+                $data['slug'] = Str::slug($data['name']) . '-' . $i++;
             }
         }
 
@@ -105,28 +106,22 @@ class   AdminProductController extends Controller
             $disk = 'public'; // Chọn disk lưu trữ
 
             // Xử lý Primary Image (Ảnh chính)
-            $path = $request->file('primary_image')->store('products/images', $disk);
-            
-       /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
-        $storage = Storage::disk($disk);
+            $path = $request->file('primary_image')->store('products', $disk);
+            $imageRecords[] = [
+                'product_id' => $product->id,
+                'image_url' => Storage::disk($disk)->url($path),
+                'is_primary' => 1,
+                'sort_order' => 0,
+                'created_at' => now(),
+            ];
 
-        $imageRecords[] = [
-            'product_id' => $product->id,
-            'image_url' => $storage->url($path),
-            'is_primary' => 1,
-            'sort_order' => 0,
-            'created_at' => now(),
-        ];
-             // Xử lý Secondary Images (Ảnh phụ)
+            // Xử lý Secondary Images (Ảnh phụ)
             if ($request->hasFile('secondary_images')) {
-                /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
-                $storage = Storage::disk($disk);
-
                 foreach ($request->file('secondary_images') as $index => $image) {
                     $path = $image->store('products/images', $disk);
                     $imageRecords[] = [
                         'product_id' => $product->id,
-                        'image_url' => $storage->url($path), // IDE sẽ không báo lỗi
+                        'image_url' => Storage::disk($disk)->url($path),
                         'is_primary' => 0,
                         'sort_order' => $index + 1,
                         'created_at' => now(),
@@ -173,156 +168,6 @@ class   AdminProductController extends Controller
             ], 500);
         }
     }
-
-    public function update(Request $request, $id)
-    {
-        $product = Product::with(['images', 'specifications'])->find($id);
-
-        if (!$product) {
-            return response()->json(['message' => 'Product not found.'], 404);
-        }
-
-        // Validation giống create, nhưng không bắt buộc slug/SKU unique với chính bản thân
-        $data = $request->validate([
-            'category_id' => 'sometimes|exists:categories,id',
-            'brand_id' => 'sometimes|exists:brands,id',
-            'name' => 'sometimes|string|max:500',
-            'slug' => ['sometimes','string','max:500', Rule::unique('products')->ignore($product->id)],
-            'sku' => ['sometimes','string','max:500', Rule::unique('products')->ignore($product->id)],
-            'short_description' => 'nullable|string',
-            'description' => 'nullable|string',
-            'price' => 'sometimes|numeric|min:0',
-            'compare_price' => 'nullable|numeric|gt:price',
-            'stock_quantity' => 'sometimes|integer|min:0',
-            'product_condition' => ['sometimes', Rule::in(['new','used'])],
-            'status' => ['sometimes', Rule::in(['active','inactive'])],
-            'is_featured' => 'boolean',
-            'primary_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-            'secondary_images' => 'nullable|array',
-            'secondary_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-            'specifications' => 'nullable|array',
-            'specifications.*.spec_key' => 'required|string|max:255',
-            'specifications.*.spec_value' => 'required|string|max:255',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $product->update($data);
-
-            $disk = 'public';
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
-            $storage = Storage::disk($disk);
-
-            // --- Xử lý primary image ---
-            if ($request->hasFile('primary_image')) {
-                $oldPrimary = $product->images()->where('is_primary', 1)->first();
-                if ($oldPrimary) {
-                    $oldPath = str_replace($storage->url(''), '', $oldPrimary->image_url);
-                    $storage->delete($oldPath);
-                    $oldPrimary->delete();
-                }
-
-                $path = $request->file('primary_image')->store('products/images', $disk);
-                $product->images()->create([
-                    'image_url' => $storage->url($path),
-                    'is_primary' => 1,
-                    'sort_order' => 0,
-                ]);
-            }
-
-            // --- Xử lý secondary images ---
-            if ($request->hasFile('secondary_images')) {
-                $secondaryOld = $product->images()->where('is_primary', 0)->get();
-                foreach ($secondaryOld as $img) {
-                    $oldPath = str_replace($storage->url(''), '', $img->image_url);
-                    $storage->delete($oldPath);
-                    $img->delete();
-                }
-
-                foreach ($request->file('secondary_images') as $index => $image) {
-                    $path = $image->store('products/images', $disk);
-                    $product->images()->create([
-                        'image_url' => $storage->url($path),
-                        'is_primary' => 0,
-                        'sort_order' => $index + 1,
-                    ]);
-                }
-            }
-
-            // --- Xử lý specifications ---
-            if (isset($data['specifications'])) {
-                $product->specifications()->delete();
-                $specsData = [];
-                foreach ($data['specifications'] as $spec) {
-                    $specsData[] = [
-                        'spec_key' => $spec['spec_key'],
-                        'spec_value' => $spec['spec_value'],
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-                $product->specifications()->insert($specsData);
-            }
-
-            DB::commit();
-            $product->load(['images', 'specifications']);
-
-            return response()->json([
-                'message' => 'Product updated successfully',
-                'data' => $product
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to update product',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-
-    public function delete($id)
-    {
-        $product = Product::with(['images', 'specifications'])->find($id);
-
-        if (!$product) {
-            return response()->json(['message' => 'Product not found.'], 404);
-        }
-
-        DB::beginTransaction();
-        try {
-            $disk = 'public';
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
-            $storage = Storage::disk($disk);
-
-            // Xóa tất cả ảnh (primary + secondary)
-            foreach ($product->images as $img) {
-                $oldPath = str_replace($storage->url(''), '', $img->image_url);
-                $storage->delete($oldPath);
-            }
-
-            // Xóa ảnh và specifications trong DB
-            $product->images()->delete();
-            $product->specifications()->delete();
-
-            // Xóa sản phẩm
-            $product->delete();
-
-            DB::commit();
-            return response()->json([
-                'message' => 'Product deleted successfully'
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to delete product',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-
-
 
 
 }
