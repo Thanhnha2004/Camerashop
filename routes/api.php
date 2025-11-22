@@ -33,6 +33,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::get('/login/google', [AuthController::class, 'redirect']);
+Route::get('/login/google/call-back', [AuthController::class, 'googleAuthCallback']);
+
 Route::post('/sendEmail', [MailController::class, 'sendMail']);
 
 // CÁC ROUTE CẦN XÁC THỰC (YÊU CẦU SANCTUM TOKEN)

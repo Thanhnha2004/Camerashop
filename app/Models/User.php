@@ -25,8 +25,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'phone',
         'avatar',
-        'role',   // Thêm vào để cho phép gán mass assignment nếu cần
-        'status', // Thêm vào để cho phép gán mass assignment nếu cần
+        'role',
+        'status',
     ];
 
     /**
